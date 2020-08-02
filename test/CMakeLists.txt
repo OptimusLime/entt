@@ -67,6 +67,7 @@ function(SETUP_BASIC_TEST TEST_NAME TEST_SOURCES)
     target_link_libraries(${TEST_NAME} PRIVATE GTest::Main Threads::Threads)
     SETUP_TARGET(${TEST_NAME} ${ARGN})
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+    set_target_properties(${TEST_NAME} PROPERTIES COMPILE_FLAGS "/std:c++latest")
 endfunction()
 
 function(SETUP_LIB_TEST TEST_NAME)
@@ -74,16 +75,63 @@ function(SETUP_LIB_TEST TEST_NAME)
     SETUP_TARGET(_${TEST_NAME} ENTT_API_EXPORT)
     SETUP_BASIC_TEST(lib_${TEST_NAME} lib/${TEST_NAME}/main.cpp ENTT_API_IMPORT)
     target_link_libraries(lib_${TEST_NAME} PRIVATE _${TEST_NAME})
+    set_target_properties(lib_${TEST_NAME} PROPERTIES COMPILE_FLAGS "/std:c++latest")
 endfunction()
 
 function(SETUP_PLUGIN_TEST TEST_NAME)
     add_library(_${TEST_NAME} MODULE $<TARGET_OBJECTS:odr> lib/${TEST_NAME}/plugin.cpp)
     SETUP_TARGET(_${TEST_NAME} NOMINMAX ${ARGVN})
-    SETUP_BASIC_TEST(lib_${TEST_NAME} lib/${TEST_NAME}/main.cpp NOMINMAX PLUGIN="$<TARGET_FILE:_${TEST_NAME}>" ${ARGVN})
+    SETUP_BASIC_TEST(lib_${TEST_NAME} lib/${TEST_NAME}/main.cpp 
+                     NOMINMAX PLUGIN="$<TARGET_FILE:_${TEST_NAME}>" ${ARGVN})
     target_include_directories(_${TEST_NAME} PRIVATE ${cr_INCLUDE_DIR})
     target_include_directories(lib_${TEST_NAME} PRIVATE ${cr_INCLUDE_DIR})
     target_link_libraries(lib_${TEST_NAME} PRIVATE ${CMAKE_DL_LIBS})
+    set_target_properties(lib_${TEST_NAME} PROPERTIES COMPILE_FLAGS "/std:c++latest")
 endfunction()
+
+
+function(SETUP_MULTI_PLUGIN_TEST TEST_NAME)
+#  TEST_SOURCES)
+    # message("incoming sources: ${TEST_SOURCES}")
+    # list(TRANSFORM TEST_SOURCES PREPEND lib/${TEST_NAME}/)
+    # message("New sources: ${TEST_SOURCES}")
+    file(GLOB TEST_SOURCES lib/${TEST_NAME}/plugin_*.cpp)
+    message("multi plugin sources: ${TEST_SOURCES}")
+
+    list(LENGTH TEST_SOURCES PLUGIN_COUNT)
+    set(PLUG_NAME "")
+    foreach(i RANGE 1 ${PLUGIN_COUNT} 1)
+        list(APPEND PLUG_NAME _${TEST_NAME}_${i}) 
+    endforeach()
+    message("plugin count: ${PLUGIN_COUNT}")
+    message("plugin names: ${PLUG_NAME}")
+
+    foreach(PLUGIN_SRC IN ZIP_LISTS PLUG_NAME TEST_SOURCES)
+
+        set(TGT_NAME ${PLUGIN_SRC_0})
+        message("Adding target: ${TGT_NAME}, with src: ${PLUGIN_SRC_1}")
+        
+        add_library(${TGT_NAME} MODULE $<TARGET_OBJECTS:odr> 
+                    ${PLUGIN_SRC_1})
+        SETUP_TARGET(${TGT_NAME} NOMINMAX ${ARGVN})
+        target_include_directories(${TGT_NAME} PRIVATE ${cr_INCLUDE_DIR})
+        # set_target_properties(lib${TGT_NAME} PROPERTIES COMPILE_FLAGS "/std:c++latest")
+    endforeach()
+
+    message("Plugins constructs, now lib: lib_${TEST_NAME}")
+
+    message("Eval: $<TARGET_FILE:_${TEST_NAME}_1>")
+    SETUP_BASIC_TEST(lib_${TEST_NAME} lib/${TEST_NAME}/main.cpp NOMINMAX 
+                     PLUGINA="$<TARGET_FILE:_${TEST_NAME}_1>" 
+                     PLUGINB="$<TARGET_FILE:_${TEST_NAME}_2>" 
+                     ${ARGVN})
+    target_include_directories(lib_${TEST_NAME} PRIVATE ${cr_INCLUDE_DIR})
+    target_link_libraries(lib_${TEST_NAME} PRIVATE ${CMAKE_DL_LIBS})
+    set_target_properties(lib_${TEST_NAME} PROPERTIES COMPILE_FLAGS "/std:c++latest")
+
+endfunction()
+
+
 
 # Test benchmark
 
@@ -114,17 +162,18 @@ if(BUILD_LIB)
         set(cr_INCLUDE_DIR ${cr_SOURCE_DIR})
     endif()
 
-    SETUP_LIB_TEST(dispatcher)
-    SETUP_LIB_TEST(emitter)
-    SETUP_LIB_TEST(meta)
-    SETUP_LIB_TEST(registry)
+    # SETUP_LIB_TEST(dispatcher)
+    # SETUP_LIB_TEST(emitter)
+    # SETUP_LIB_TEST(meta)
+    # SETUP_LIB_TEST(registry)
 
-    SETUP_PLUGIN_TEST(dispatcher_plugin)
-    SETUP_PLUGIN_TEST(emitter_plugin)
-    SETUP_PLUGIN_TEST(meta_plugin)
-    SETUP_PLUGIN_TEST(registry_plugin)
+    SETUP_MULTI_PLUGIN_TEST(multi_plugin)
+    # SETUP_PLUGIN_TEST(dispatcher_plugin)
+    # SETUP_PLUGIN_TEST(emitter_plugin)
+    # SETUP_PLUGIN_TEST(meta_plugin)
+    # SETUP_PLUGIN_TEST(registry_plugin)
 
-    SETUP_PLUGIN_TEST(meta_plugin_std ENTT_STANDARD_CPP)
+    # SETUP_PLUGIN_TEST(meta_plugin_std ENTT_STANDARD_CPP)
 endif()
 
 # Test snapshot
@@ -148,63 +197,63 @@ if(BUILD_SNAPSHOT)
     target_include_directories(cereal PRIVATE ${cereal_INCLUDE_DIR})
 endif()
 
-# Test core
+# # Test core
 
-SETUP_BASIC_TEST(algorithm entt/core/algorithm.cpp)
-SETUP_BASIC_TEST(family entt/core/family.cpp)
-SETUP_BASIC_TEST(hashed_string entt/core/hashed_string.cpp)
-SETUP_BASIC_TEST(ident entt/core/ident.cpp)
-SETUP_BASIC_TEST(monostate entt/core/monostate.cpp)
-SETUP_BASIC_TEST(type_info entt/core/type_info.cpp)
-SETUP_BASIC_TEST(type_traits entt/core/type_traits.cpp)
-SETUP_BASIC_TEST(utility entt/core/utility.cpp)
+# SETUP_BASIC_TEST(algorithm entt/core/algorithm.cpp)
+# SETUP_BASIC_TEST(family entt/core/family.cpp)
+# SETUP_BASIC_TEST(hashed_string entt/core/hashed_string.cpp)
+# SETUP_BASIC_TEST(ident entt/core/ident.cpp)
+# SETUP_BASIC_TEST(monostate entt/core/monostate.cpp)
+# SETUP_BASIC_TEST(type_info entt/core/type_info.cpp)
+# SETUP_BASIC_TEST(type_traits entt/core/type_traits.cpp)
+# SETUP_BASIC_TEST(utility entt/core/utility.cpp)
 
-# Test entity
+# # Test entity
 
-SETUP_BASIC_TEST(actor entt/entity/actor.cpp)
-SETUP_BASIC_TEST(entity entt/entity/entity.cpp)
-SETUP_BASIC_TEST(group entt/entity/group.cpp)
-SETUP_BASIC_TEST(handle entt/entity/handle.cpp)
-SETUP_BASIC_TEST(helper entt/entity/helper.cpp)
-SETUP_BASIC_TEST(observer entt/entity/observer.cpp)
-SETUP_BASIC_TEST(registry entt/entity/registry.cpp)
-SETUP_BASIC_TEST(registry_no_eto entt/entity/registry_no_eto.cpp ENTT_NO_ETO)
-SETUP_BASIC_TEST(runtime_view entt/entity/runtime_view.cpp)
-SETUP_BASIC_TEST(snapshot entt/entity/snapshot.cpp)
-SETUP_BASIC_TEST(sparse_set entt/entity/sparse_set.cpp)
-SETUP_BASIC_TEST(storage entt/entity/storage.cpp)
-SETUP_BASIC_TEST(view entt/entity/view.cpp)
+# SETUP_BASIC_TEST(actor entt/entity/actor.cpp)
+# SETUP_BASIC_TEST(entity entt/entity/entity.cpp)
+# SETUP_BASIC_TEST(group entt/entity/group.cpp)
+# SETUP_BASIC_TEST(handle entt/entity/handle.cpp)
+# SETUP_BASIC_TEST(helper entt/entity/helper.cpp)
+# SETUP_BASIC_TEST(observer entt/entity/observer.cpp)
+# SETUP_BASIC_TEST(registry entt/entity/registry.cpp)
+# SETUP_BASIC_TEST(registry_no_eto entt/entity/registry_no_eto.cpp ENTT_NO_ETO)
+# SETUP_BASIC_TEST(runtime_view entt/entity/runtime_view.cpp)
+# SETUP_BASIC_TEST(snapshot entt/entity/snapshot.cpp)
+# SETUP_BASIC_TEST(sparse_set entt/entity/sparse_set.cpp)
+# SETUP_BASIC_TEST(storage entt/entity/storage.cpp)
+# SETUP_BASIC_TEST(view entt/entity/view.cpp)
 
-# Test locator
+# # Test locator
 
-SETUP_BASIC_TEST(locator entt/locator/locator.cpp)
+# SETUP_BASIC_TEST(locator entt/locator/locator.cpp)
 
-# Test meta
+# # Test meta
 
-SETUP_BASIC_TEST(meta_any entt/meta/meta_any.cpp)
-SETUP_BASIC_TEST(meta_base entt/meta/meta_base.cpp)
-SETUP_BASIC_TEST(meta_container entt/meta/meta_container.cpp)
-SETUP_BASIC_TEST(meta_conv entt/meta/meta_conv.cpp)
-SETUP_BASIC_TEST(meta_ctor entt/meta/meta_ctor.cpp)
-SETUP_BASIC_TEST(meta_data entt/meta/meta_data.cpp)
-SETUP_BASIC_TEST(meta_func entt/meta/meta_func.cpp)
-SETUP_BASIC_TEST(meta_pointer entt/meta/meta_pointer.cpp)
-SETUP_BASIC_TEST(meta_prop entt/meta/meta_prop.cpp)
-SETUP_BASIC_TEST(meta_range entt/meta/meta_range.cpp)
-SETUP_BASIC_TEST(meta_type entt/meta/meta_type.cpp)
+# SETUP_BASIC_TEST(meta_any entt/meta/meta_any.cpp)
+# SETUP_BASIC_TEST(meta_base entt/meta/meta_base.cpp)
+# SETUP_BASIC_TEST(meta_container entt/meta/meta_container.cpp)
+# SETUP_BASIC_TEST(meta_conv entt/meta/meta_conv.cpp)
+# SETUP_BASIC_TEST(meta_ctor entt/meta/meta_ctor.cpp)
+# SETUP_BASIC_TEST(meta_data entt/meta/meta_data.cpp)
+# SETUP_BASIC_TEST(meta_func entt/meta/meta_func.cpp)
+# SETUP_BASIC_TEST(meta_pointer entt/meta/meta_pointer.cpp)
+# SETUP_BASIC_TEST(meta_prop entt/meta/meta_prop.cpp)
+# SETUP_BASIC_TEST(meta_range entt/meta/meta_range.cpp)
+# SETUP_BASIC_TEST(meta_type entt/meta/meta_type.cpp)
 
-# Test process
+# # Test process
 
-SETUP_BASIC_TEST(process entt/process/process.cpp)
-SETUP_BASIC_TEST(scheduler entt/process/scheduler.cpp)
+# SETUP_BASIC_TEST(process entt/process/process.cpp)
+# SETUP_BASIC_TEST(scheduler entt/process/scheduler.cpp)
 
-# Test resource
+# # Test resource
 
-SETUP_BASIC_TEST(resource entt/resource/resource.cpp)
+# SETUP_BASIC_TEST(resource entt/resource/resource.cpp)
 
-# Test signal
+# # Test signal
 
-SETUP_BASIC_TEST(delegate entt/signal/delegate.cpp)
-SETUP_BASIC_TEST(dispatcher entt/signal/dispatcher.cpp)
-SETUP_BASIC_TEST(emitter entt/signal/emitter.cpp)
-SETUP_BASIC_TEST(sigh entt/signal/sigh.cpp)
+# SETUP_BASIC_TEST(delegate entt/signal/delegate.cpp)
+# SETUP_BASIC_TEST(dispatcher entt/signal/dispatcher.cpp)
+# SETUP_BASIC_TEST(emitter entt/signal/emitter.cpp)
+# SETUP_BASIC_TEST(sigh entt/signal/sigh.cpp)
